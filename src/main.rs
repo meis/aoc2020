@@ -1,5 +1,7 @@
 use std::env;
 
+mod day01;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -11,6 +13,7 @@ fn main() {
     println!("{}", input_file);
 
     match day.as_str() {
+        "01" => day01::run(input_file),
         _ => println!("not implemented"),
     }
 
