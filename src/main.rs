@@ -1,0 +1,18 @@
+use std::env;
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    let default_day = &format!("_");
+    let day = args.get(1).unwrap_or(default_day);
+    let default_file = &format!("src/day{}/input", day);
+    let input_file = args.get(2).unwrap_or(default_file);
+
+    println!("{}", input_file);
+
+    match day.as_str() {
+        _ => println!("not implemented"),
+    }
+
+    println!("{:?}", args);
+}

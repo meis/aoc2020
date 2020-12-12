@@ -1,0 +1,16 @@
+{
+  "name": "aoc2020",
+  "version": "0.1.0",
+  "description": "Advent of Code 2020",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/meis/aoc2020.git"
+  },
+  "author": "Marc Egea i Sala",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "day": "node src/index.js"
+  }
+
+}

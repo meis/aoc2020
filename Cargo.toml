@@ -1,0 +1,13 @@
+[package]
+name = "aoc2020"
+version = "0.1.0"
+authors = ["Marc Egea i Sala <marc.egea.sala@gmail.com>"]
+edition = "2018"
+publish = false
+readme = "README.md"
+repository = "https://github.com/meis/aoc2020"
+license = "MIT"
+
+[dependencies]
+
+regex = "*"
