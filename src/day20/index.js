@@ -36,7 +36,64 @@ module.exports = function(inputFile) {
 
   console.log(sortedTiles.map(row => row.map(col => col ? col.id : null)))
 
+
+  const bigMapSize = (tiles[0].dimension - 2) * dimensions
+  console.log(bigMapSize)
+  const bitmap = Array.from(Array(bigMapSize)).map(_ => Array.from(Array(bigMapSize)));
+  for (let i = 0; i < bigMapSize; i++) {
+    for (let j = 0; j < bigMapSize; j++) {
+      const [tileX, tileY, bitX, bitY] = getCoords(i, j, tiles[0].dimension);
+      bitmap[i][j] = sortedTiles[tileX][tileY].bitmap[bitX][bitY];
+    }
+  }
+
+  const megaTile = new Tile({ id: 0, bitmap });
+  console.log(bitmap.map(row => row.join('')))
+
+
+  let monsters = 0;
+  megaTile.shakeUntil(() => {
+    for (let i = 0; i < bigMapSize; i++) {
+      for (let j = 0; j < bigMapSize; j++) {
+        if (hasMonster(i, j, megaTile.bitmap)) monsters++;
+      }
+    }
+
+    return monsters > 0;
+  });
+  console.log({ monsters })
+  console.log(megaTile.bitmap.flat().flat().filter(c => c =='#').length)
+  console.log(megaTile.bitmap.flat().flat().filter(c => c == '#').length - (monsters * 15));
+ // console.log(megaTile.bitmap.map(row => row.join('')))
 };
+
+//                  #
+//#    ##    ##    ###
+// #  #  #  #  #  #
+function hasMonster(x, y, bitmap) {
+  const positions = [
+    [0, 18],
+    [1, 0], [1, 5], [1, 6], [1, 11], [1, 12], [1, 17], [1, 18], [1, 19],
+    [2, 1], [2, 4], [2, 7], [2, 10], [2, 13], [2, 16]
+  ]
+  if (x + 3 >= bitmap.length) return false;
+  if (y + 19 >= bitmap.length) return false;
+
+  for (let i = 0; i < positions.length; i ++) {
+    if (bitmap[x + positions[i][0]][y + positions[i][1]] != '#') return false;
+  }
+
+  return true;
+}
+
+function getCoords(x, y, tileSize) {
+  const tileX = Math.floor(x / (tileSize - 2));
+  const tileY = Math.floor(y / (tileSize - 2));
+  const bitX = 1 + (x - tileX * (tileSize - 2));
+  const bitY = 1 + (y - tileY * (tileSize - 2));
+
+  return [tileX, tileY, bitX, bitY]
+}
 
 function fit(i, j, tile, sortedTiles) {
   if (tile.shakeUntil(() => checkRules(i, j, tile, sortedTiles))) {
