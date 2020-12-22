@@ -3,156 +3,76 @@ const fs = require('fs');
 module.exports = function(inputFile) {
   const tiles = parseFile(inputFile).map(t => new Tile(t));
 
-  // tiles.forEach(tile => tile.borders = getBorders(tile));
-  // tiles.forEach(tile => tile.neighbors = getNeighbors(tiles, tile));
-  // console.log(tiles.map(t => t.neighbors))
-
-  // const borders = tiles.filter(t => t.neighbors.length === 2);
-  // const multiplyBorderIds = borders.map(b => b.id).reduce((a, b) => a * b, 1);
-
-  // console.log(multiplyBorderIds)
-
-  //console.log(tiles[0].allPossibleBorders().sort())
-
   const neighborMap = {}
   tiles.forEach(tile => neighborMap[tile.id] = tile.getNeighborIds(tiles))
+
+
+  tiles.forEach(tile => tile.addNeighbors(tiles))
 
 
   const multiplyBorderIds = Object.keys(neighborMap)
   .filter(k => neighborMap[k].length == 2)
   .reduce((a, b) => a * b, 1);
 
-  //const t = new Tile({ id: 1, bitmap: [[ 1, 2, 3], [4, 5, 6], [7, 8, 9]] });
-  // t.shakeUntil(() => t.bitmap[1][0] == 2)
-  // console.log(t.print(), "\n")
-  // t.flipVertically();
-  // console.log(t.print(), "\n")
-  // t.flipHorizontally();
-  // console.log(t.print(), "\n")
-  // t.rotate();
-  // console.log(t.print(), "\n")
 
-
-
-  // t1 = tiles.filter(t => t.id == 1951)[0];
-  // console.log(t1.print(), "\n")
-  // t2 = tiles.filter(t => t.id == 2311)[0];
-  // t3 = tiles.filter(t => t.id == 2729)[0];
-  // getInitialTile(t1, [t2, t3], neighborMap)
-  // const x = findRightNeighbor(t1, tiles);
-  // console.log({ x})
-  // console.log(findRightNeighbor(x, tiles))
 
 
   const dimensions = Math.sqrt(tiles.length);
   const sortedTiles = Array.from(Array(dimensions)).map(_ => Array.from(Array(dimensions)));
 
 
-  let corners = Object.keys(neighborMap).filter(k => neighborMap[k].length == 2).map(id => tiles.filter(t => t.id == id)[0]);
-  let finished = false;
-  while(!finished && corners.length > 1) {
-    let current = getInitialTile(corners.shift(), tiles, neighborMap)
-    //try {
-      for(let i = 0; i < dimensions; i++) {
-        console.log({ current })
-        sortedTiles[i][0] = current.id;
-
-        for (let j = 1; j < dimensions; j++) {
-          //current = findRightNeighbor(current, tiles);
-          current = findRightNeighbor(current, neighborMap[current.id].map(c => tiles.filter(t => t.id === c)[0]));
-          sortedTiles[i][j] = current.id;
-        }
-
-        if (i < dimensions - 1) {
-          const left = tiles.filter(t => t.id === sortedTiles[i][0])[0];
-          console.log(left)
-          current = findBottomNeighbor(left, tiles)
-        }
+  let candidates = [tiles.find(t => t.neighbors.length === 2)];
+  for (let i = 0; i < dimensions; i++) {
+    for (let j = 0; j < dimensions; j++) {
+      candidates.forEach(t => fit(i, j, t, sortedTiles));
+      if (j === dimensions -1) {
+        candidates = sortedTiles[i][0].neighbors.filter(t => !t.fit);
       }
-
-      finished = true;
-    //} catch(e) {
-    //  console.log(e)
-    //}
+      else {
+        candidates = sortedTiles[i][j].neighbors.filter(t => !t.fit);
+      }
+    }
   }
-  console.log(sortedTiles)
+
+  console.log(sortedTiles.map(row => row.map(col => col ? col.id : null)))
+
 };
 
-function getInitialTile(initial, tiles, neighborMap) {
-  const [a, b] = neighborMap[initial.id].map(c => tiles.filter(t => t.id === c)[0]);
-
-  initial.shakeUntil(() => {
-    return [...a.allPossibleBorders(), ...b.allPossibleBorders()].includes(initial.rightBorder()) &&
-    [...a.allPossibleBorders(), ...b.allPossibleBorders()].includes(initial.bottomBorder());
-  });
-  return initial;
+function fit(i, j, tile, sortedTiles) {
+  if (tile.shakeUntil(() => checkRules(i, j, tile, sortedTiles))) {
+    tile.fit = true;
+    sortedTiles[i][j] = tile;
+  }
 }
 
-function findRightNeighbor(tile, candidates) {
-  let right;
-  console.log(tile.id, { candidates })
-  candidates.filter(c => c.id !== tile.id).forEach(candidate => {
-    console.log(`trying`, candidate.id)
-    if (candidate.shakeUntil(() => tile.rightBorder() === candidate.leftBorder())) {
-      right = candidate;
+function checkRules(i, j, tile, sortedTiles) {
+  const rules = [
+    { myMethod: 'topBorder', theirMethod: 'bottomBorder', neighbors: i === 0 ? null : sortedTiles[i - 1][j] },
+    { myMethod: 'bottomBorder', theirMethod: 'topBorder', neighbors: i === sortedTiles.length -1 ? null : tile.neighbors },
+    { myMethod: 'leftBorder', theirMethod: 'rightBorder', neighbors: j === 0 ? null : sortedTiles[i][j - 1] },
+    { myMethod: 'rightBorder', theirMethod: 'leftBorder', neighbors: j === sortedTiles.length -1 ? null : tile.neighbors },
+  ];
+
+  return rules.map(rule => {
+    if (rule.neighbors === null) {
+      const neighborBorders = tile.neighbors.map(n => n.allPossibleBorders()).flat();
+      return ! neighborBorders.includes(tile[rule.myMethod]());
+    } else if (Array.isArray(rule.neighbors)) {
+      const neighborBorders = rule.neighbors.map(n => n.allPossibleBorders()).flat();
+      return neighborBorders.includes(tile[rule.myMethod]());
+    } else {
+      return rule.neighbors[rule.theirMethod]() === tile[rule.myMethod]();
     }
-    // if (tile.rightBorder() === candidate.leftBorder()) {
-    //   right = candidate;
-    //   return;
-    // }
-    // candidate.rotate();
-    // if (tile.rightBorder() === candidate.leftBorder()) {
-    //   right = candidate;
-    //   return;
-    // }
-    // candidate.rotate();
-    // if (tile.rightBorder() === candidate.leftBorder()) {
-    //   right = candidate;
-    //   return;
-    // }
-    // candidate.rotate();
-    // if (tile.rightBorder() === candidate.leftBorder()) {
-    //   right = candidate;
-    //   return;
-    // }
-  });
-  return right;
+  }).every(result => result === true);
 }
 
-function findBottomNeighbor(tile, candidates) {
-  let bottom;
-  candidates.filter(c => c.id !== tile.id).forEach(candidate => {
-    if (candidate.shakeUntil(() => tile.bottomBorder() === candidate.topBorder())) {
-      bottom = candidate;
-    }
-    // if (tile.bottomBorder() === candidate.topBorder()) {
-    //   bottom = candidate;
-    //   return;
-    // }
-    // candidate.rotate();
-    // if (tile.bottomBorder() === candidate.topBorder()) {
-    //   bottom = candidate;
-    //   return;
-    // }
-    // candidate.rotate();
-    // if (tile.bottomBorder() === candidate.topBorder()) {
-    //   bottom = candidate;
-    //   return;
-    // }
-    // candidate.rotate();
-    // if (tile.bottomBorder() === candidate.topBorder()) {
-    //   bottom = candidate;
-    //   return;
-    // }
-  });
-  return bottom;
-}
 
 class Tile {
   constructor({id, bitmap}) {
     this.id = id;
     this.bitmap = bitmap;
     this.dimension = this.bitmap.length;
+    this.fit = false;
   }
 
   rotate() {
@@ -168,25 +88,21 @@ class Tile {
   }
 
   shakeUntil(condition) {
-    if (condition(this)) return true;
-    this.rotate()
-    if (condition(this)) return true;
-    this.rotate()
-    if (condition(this)) return true;
-    this.rotate()
-    if (condition(this)) return true;
-    this.rotate()
-    this.flipVertically()
-    if (condition(this)) return true;
-    this.flipHorizontally()
-    if (condition(this)) return true;
-    this.flipVertically()
-    if (condition(this)) return true;
-    this.flipHorizontally()
+    const movements = [
+      'flipVertically', 'flipHorizontally', 'flipVertically', 'flipHorizontally', 'rotate',
+      'flipVertically', 'flipHorizontally', 'flipVertically', 'flipHorizontally', 'rotate',
+      'flipVertically', 'flipHorizontally', 'flipVertically', 'flipHorizontally', 'rotate',
+      'flipVertically', 'flipHorizontally', 'flipVertically', 'flipHorizontally', 'rotate',
+    ]
+    for (let i = 0; i < movements.length; i++) {
+      if (condition(this)) return true;
+      this[movements[i]]();
+    }
     return false;
   }
 
   transform(transformation) {
+    if (this.fit) throw new Error("Can't move a tile that already fits")
     const newBitmap = Array.from(Array(this.dimension)).map(_ => Array.from(Array(this.dimension)));
 
     for (let i = 0; i < this.dimension; i++) {
@@ -202,6 +118,10 @@ class Tile {
     return tiles.filter(t => t.id !== this.id).filter(t => this.sharesBorderWith(t)).map(t => t.id);
   }
 
+  addNeighbors(tiles) {
+    this.neighbors = tiles.filter(t => t.id !== this.id).filter(t => this.sharesBorderWith(t));
+  }
+
   sharesBorderWith(otherTile) {
     const myBorders = this.allPossibleBorders();
     const otherBorders = otherTile.allPossibleBorders();
@@ -210,25 +130,10 @@ class Tile {
   }
 
   allPossibleBorders() {
-    // const all = [];
-    // all.push(this.topBorder(), this.bottomBorder(), this.leftBorder(), this.rightBorder());
-    // this.rotate();
-    // all.push(this.topBorder(), this.bottomBorder(), this.leftBorder(), this.rightBorder());
-    // this.rotate();
-    // all.push(this.topBorder(), this.bottomBorder(), this.leftBorder(), this.rightBorder());
-    // this.rotate();
-    // all.push(this.topBorder(), this.bottomBorder(), this.leftBorder(), this.rightBorder());
-
-    // return all;
-
-    return [
-      this.topBorder(),
-      this.bottomBorder(),
-      this.leftBorder(),
-      this.rightBorder(),
-    ]
-    .map(b => [b, b.split('').reverse().join('')])
-    .flat();
+    return ['topBorder', 'bottomBorder', 'leftBorder', 'rightBorder']
+      .map(b => this[b]())
+      .map(b => [b, b.split('').reverse().join('')])
+      .flat();
   }
 
   topBorder() {
